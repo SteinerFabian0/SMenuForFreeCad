@@ -71,6 +71,15 @@ workbench has to be loaded at the moment of the drop.
   without restarting FreeCAD.
 - `package.xml` - Addon Manager metadata.
 
+## Credits
+
+No code from other addons is copied into this repo. `smenu/search.py`
+integrates with the [SearchBar](https://github.com/APEbbers/SearchBar)
+addon at runtime, importing its installed `GetItemGroups`, `SearchBox`,
+`SearchBoxLight` and `IndentedItemDelegate` modules to reuse its search
+field and result index instead of reimplementing them; SearchBar must be
+installed separately (see Addon Manager) and keeps its own license.
+
 ## Dev setup
 
 This repo is symlinked into FreeCAD's Mod directory so edits here take
