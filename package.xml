@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
+  <name>SMenuForFreeCad</name>
+  <description>SolidWorks-style S-menu: a grid-based command popup with attached search, per-workspace layouts, and drag/drop pinning.</description>
+  <version>0.0.1</version>
+  <maintainer email="fabiansteiner.business@gmail.com">Fabian Steiner</maintainer>
+  <license file="LICENSE">TBD</license>
+  <url type="repository" branch="main">https://github.com/REPLACE_ME/SMenuForFreeCad</url>
+  <url type="bugtracker">https://github.com/REPLACE_ME/SMenuForFreeCad/issues</url>
+
+  <icon>Resources/icons/SMenu.svg</icon>
+
+  <content>
+    <workbench>
+      <name>SMenuForFreeCad</name>
+      <subdirectory>./</subdirectory>
+      <icon>Resources/icons/SMenu.svg</icon>
+      <tag>menu</tag>
+      <tag>productivity</tag>
+    </workbench>
+  </content>
+</package>

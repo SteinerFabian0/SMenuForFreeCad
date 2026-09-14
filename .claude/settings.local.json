@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd ~/.var/app/org.freecad.FreeCAD/data/FreeCAD/v1-1/Mod/ && cat SearchBar/InitGui.py; echo \"=== Parameters ===\"; head -60 SearchBar/Parameters_SearchBar.py; echo \"=== UI head ===\"; head -60 SearchBar/Resources/ui/PreferencesUI_SearchBar.ui)",
+      "Read(//home/fabian/.var/app/org.freecad.FreeCAD/data/FreeCAD/v1-1/Mod/**)",
+      "Bash(python3 -m py_compile InitGui.py smenu/*.py dev/reload.py)",
+      "Bash(python3 -c \"import xml.dom.minidom as m; m.parse\\('Resources/ui/Preferences.ui'\\); m.parse\\('Resources/icons/SMenu.svg'\\); m.parse\\('package.xml'\\); print\\('xml OK'\\)\")",
+      "Read(//home/fabian/.var/app/org.freecad.FreeCAD/data/FreeCAD/v1-1/**)",
+      "Read(//home/fabian/.var/app/org.freecad.FreeCAD/**)",
+      "Read(//home/fabian/.var/app/org.freecad.FreeCAD/cache/**)",
+      "Bash(timeout -s KILL 45 flatpak run org.freecad.FreeCAD)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(rm -f /home/fabian/Desktop/SMenuForFreeCad/.smenucheck ~/.var/app/org.freecad.FreeCAD/data/FreeCAD/v1-1/Macro/check.FCMacro && echo \"cleaned up\")",
+      "Bash(python3 -m py_compile smenu/widget.py)",
+      "Bash(python3 -m py_compile smenu/*.py)",
+      "Bash(python3 -c \"print\\(1\\)\")",
+      "Read(//var/lib/flatpak/app/org.freecad.FreeCAD/x86_64/stable/c8bae9a419fcddf1f40c046b064be3b8b98144734b1828428f6a2a944312dd29/files/**)",
+      "Bash(sed -n 115,132p /var/lib/flatpak/app/org.freecad.FreeCAD/current/active/files/freecad/Mod/AddonManager/AddonManager.py; echo ---; grep -rn \"class AddonManagerOptions\" -A 25 /var/lib/flatpak/app/org.freecad.FreeCAD/current/active/files/freecad/Mod/AddonManager/addonmanager_preferences_defaults.py /var/lib/flatpak/app/org.freecad.FreeCAD/current/active/files/freecad/Mod/AddonManager/*.py | head -40)",
+      "Read(//var/lib/flatpak/app/org.freecad.FreeCAD/current/active/files/freecad/Mod/AddonManager/**)",
+      "Bash(python3 -c ' *)"
+    ],
+    "additionalDirectories": [
+      "/home/fabian/.var/app/org.freecad.FreeCAD/data/FreeCAD/v1-1/Macro"
+    ]
+  }
+}
