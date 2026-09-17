@@ -2,23 +2,25 @@
 
 from PySide import QtCore, QtGui, QtWidgets
 
-from smenu import commands, config, drag, search
+from smenu import commands, config, drag, index, search
 
-CELL_SIZE = 28
-CELL_ICON_SIZE = 20
 GRID_SPACING = 4
 SEARCH_GAP = 10
+SEARCH_FIELD_HEIGHT = 28
+MIN_PANEL_WIDTH = 170
 PANEL_MARGIN = 4
+CELL_ICON_INSET = 8
 
 
 class SMenuCell(QtWidgets.QToolButton):
-    def __init__(self, row: int, column: int, parent: QtWidgets.QWidget):
+    def __init__(self, row: int, column: int, cellSize: int, parent: QtWidgets.QWidget):
         super().__init__(parent)
         self.row = row
         self.column = column
         self.commandName = ""
-        self.setFixedSize(CELL_SIZE, CELL_SIZE)
-        self.setIconSize(QtCore.QSize(CELL_ICON_SIZE, CELL_ICON_SIZE))
+        iconExtent = max(8, cellSize - CELL_ICON_INSET)
+        self.setFixedSize(cellSize, cellSize)
+        self.setIconSize(QtCore.QSize(iconExtent, iconExtent))
         self.setFocusPolicy(QtCore.Qt.NoFocus)
         self.setProperty("smenuDropTarget", False)
 
@@ -47,12 +49,13 @@ class SMenuWidget(QtWidgets.QFrame):
         self.setObjectName("SMenuPopup")
         self.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.setAutoFillBackground(True)
-        self.setStyleSheet(_PANEL_STYLE)
         self.setMouseTracking(True)
+        self.setMinimumWidth(MIN_PANEL_WIDTH)
         self.cells: list[SMenuCell] = []
         self.paletteName = config.DEFAULT_PALETTE
+        self.commandIndex = index.CommandIndex()
         self.drag = drag.CommandDrag()
-        self.pressedResult = None
+        self.pressedGroupId = None
         self.pressedCell = None
         self.pressPosition = QtCore.QPoint()
 
@@ -63,23 +66,35 @@ class SMenuWidget(QtWidgets.QFrame):
         self.gridLayout = QtWidgets.QGridLayout()
         self.gridLayout.setSpacing(GRID_SPACING)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
-        panelLayout.addLayout(self.gridLayout)
 
-        self.searchField = search.createSearchField(self, CELL_SIZE, self.hide)
+        # The grid keeps its own spacing instead of stretching when the panel is
+        # wider than it is, which it is whenever the search field sets the width.
+        gridRow = QtWidgets.QHBoxLayout()
+        gridRow.setContentsMargins(0, 0, 0, 0)
+        gridRow.addStretch()
+        gridRow.addLayout(self.gridLayout)
+        gridRow.addStretch()
+        panelLayout.addLayout(gridRow)
+
+        self.searchField = search.createSearchField(
+            self, SEARCH_FIELD_HEIGHT, self.commandIndex, self._runCommand
+        )
         panelLayout.addWidget(self.searchField)
 
     def rebuildGrid(self) -> None:
         self._clearGrid()
         self.paletteName = config.getActivePalette()
+        cellSize = config.getCellSize()
         for row in range(config.getGridRows()):
             for column in range(config.getGridColumns()):
-                cell = SMenuCell(row, column, self)
+                cell = SMenuCell(row, column, cellSize, self)
                 cell.setCommand(config.getPinnedCommand(self.paletteName, row, column))
                 cell.clicked.connect(lambda checked=False, source=cell: self._runCell(source))
                 self.gridLayout.addWidget(cell, row, column)
                 self.cells.append(cell)
 
     def showAtCursor(self) -> None:
+        self.setStyleSheet(_panelStyle(config.getShowCellFrames()))
         self.rebuildGrid()
         self.searchField.clear()
         self.adjustSize()
@@ -122,12 +137,13 @@ class SMenuWidget(QtWidgets.QFrame):
             return self.pressedCell is not None
         if not search.coversPoint(self.searchField, position):
             return False
-        self.pressedResult = search.resultAt(self.searchField, position)
+        self.pressedGroupId = search.groupIdAt(self.searchField, position)
         return True
 
     def _handleMove(self, position: QtCore.QPoint) -> bool:
         if self.drag.isActive():
             self.drag.moveTo(position)
+            self.drag.showAsRemoval(self._isRemovalDrop(position))
             self._markDropTarget(self._cellAt(position))
             return True
         if self._hasPendingPress() and drag.exceedsThreshold(self.pressPosition, position):
@@ -141,10 +157,10 @@ class SMenuWidget(QtWidgets.QFrame):
             self._dropAt(position)
             self._clearPress()
             return True
-        activatedResult = self.pressedResult
+        activatedGroupId = self.pressedGroupId
         wasPending = self._hasPendingPress()
         self._clearPress()
-        if activatedResult is not None:
+        if activatedGroupId is not None:
             search.activateResultAt(self.searchField, position)
         return wasPending
 
@@ -153,7 +169,7 @@ class SMenuWidget(QtWidgets.QFrame):
         commandName = (
             source.commandName
             if source is not None
-            else commands.commandNameFromResult(self.pressedResult)
+            else self.commandIndex.commandNameFor(self.pressedGroupId)
         )
         self._clearPress()
         if not commandName:
@@ -163,10 +179,14 @@ class SMenuWidget(QtWidgets.QFrame):
         self._markDropTarget(self._cellAt(position))
 
     def _dropAt(self, position: QtCore.QPoint) -> None:
+        isRemoval = self._isRemovalDrop(position)
         target = self._cellAt(position)
         source = self.drag.source
         commandName = self.drag.finish()
         self._markDropTarget(None)
+        if isRemoval:
+            self._unpin(source)
+            return
         if target is None or target is source:
             return
         if source is not None:
@@ -177,11 +197,20 @@ class SMenuWidget(QtWidgets.QFrame):
         config.setPinnedCommand(self.paletteName, cell.row, cell.column, commandName)
         cell.setCommand(commandName)
 
+    def _unpin(self, cell: SMenuCell) -> None:
+        config.clearPinnedCommand(self.paletteName, cell.row, cell.column)
+        cell.setCommand("")
+
+    def _isRemovalDrop(self, globalPosition: QtCore.QPoint) -> bool:
+        if self.drag.source is None:
+            return False
+        return not self.rect().contains(self.mapFromGlobal(globalPosition))
+
     def _hasPendingPress(self) -> bool:
-        return self.pressedResult is not None or self.pressedCell is not None
+        return self.pressedGroupId is not None or self.pressedCell is not None
 
     def _clearPress(self) -> None:
-        self.pressedResult = None
+        self.pressedGroupId = None
         self.pressedCell = None
 
     def _cancelDrag(self) -> None:
@@ -199,10 +228,13 @@ class SMenuWidget(QtWidgets.QFrame):
         return child if isinstance(child, SMenuCell) else None
 
     def _runCell(self, cell: SMenuCell) -> None:
-        if not cell.commandName:
+        self._runCommand(cell.commandName)
+
+    def _runCommand(self, commandName: str) -> None:
+        if not commandName:
             return
         self.hide()
-        commands.run(cell.commandName)
+        commands.run(commandName)
 
     def _clearGrid(self) -> None:
         for cell in self.cells:
@@ -224,35 +256,40 @@ def _topLeftAt(point: QtCore.QPoint, size: QtCore.QSize) -> QtCore.QPoint:
     return QtCore.QPoint(left, top)
 
 
-_PANEL_STYLE = """
-#SMenuPopup {
+def _panelStyle(showCellFrames: bool) -> str:
+    cellFrame = "#343434" if showCellFrames else "transparent"
+    return _PANEL_STYLE_TEMPLATE.format(cellFrame=cellFrame)
+
+
+_PANEL_STYLE_TEMPLATE = """
+#SMenuPopup {{
     background-color: #2b2b2b;
     border: 1px solid #555555;
     border-radius: 4px;
-}
-#SMenuPopup > QToolButton {
-    border: 1px solid #343434;
+}}
+#SMenuPopup > QToolButton {{
+    border: 1px solid {cellFrame};
     border-radius: 3px;
     background-color: transparent;
     color: #909090;
-}
-#SMenuPopup > QToolButton:hover {
+}}
+#SMenuPopup > QToolButton:hover {{
     border-color: #3daee9;
     background-color: #3a3a3a;
-}
-#SMenuPopup > QToolButton[smenuDropTarget="true"] {
+}}
+#SMenuPopup > QToolButton[smenuDropTarget="true"] {{
     border-color: #3daee9;
     background-color: #3a4a52;
-}
-#SMenuPopup QLineEdit {
+}}
+#SMenuPopup QLineEdit {{
     border: 1px solid #343434;
     border-radius: 3px;
     background-color: transparent;
     color: #d0d0d0;
     padding-left: 4px;
     padding-right: 4px;
-}
-#SMenuPopup QLineEdit:focus {
+}}
+#SMenuPopup QLineEdit:focus {{
     border-color: #3daee9;
-}
+}}
 """

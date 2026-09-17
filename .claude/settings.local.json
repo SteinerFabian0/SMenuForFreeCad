@@ -17,7 +17,13 @@
       "Read(//var/lib/flatpak/app/org.freecad.FreeCAD/x86_64/stable/c8bae9a419fcddf1f40c046b064be3b8b98144734b1828428f6a2a944312dd29/files/**)",
       "Bash(sed -n 115,132p /var/lib/flatpak/app/org.freecad.FreeCAD/current/active/files/freecad/Mod/AddonManager/AddonManager.py; echo ---; grep -rn \"class AddonManagerOptions\" -A 25 /var/lib/flatpak/app/org.freecad.FreeCAD/current/active/files/freecad/Mod/AddonManager/addonmanager_preferences_defaults.py /var/lib/flatpak/app/org.freecad.FreeCAD/current/active/files/freecad/Mod/AddonManager/*.py | head -40)",
       "Read(//var/lib/flatpak/app/org.freecad.FreeCAD/current/active/files/freecad/Mod/AddonManager/**)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Read(//home/fabian/.var/app/org.freecad.FreeCAD/data/FreeCAD/v1-1/Mod/SearchBar/**)",
+      "Bash(python3 -)",
+      "Bash(cd /var/lib/flatpak/app/org.freecad.FreeCAD/current/active/files && ls lib/ | head -20 && find . -name \"FreeCADGui.so\" -o -name \"libFreeCADGui*\" | head)",
+      "Bash(cd /var/lib/flatpak/app/org.freecad.FreeCAD/current/active/files/freecad/lib && strings libFreeCADGui.so | grep -n \"getIcon\" | head -10)",
+      "Read(//var/lib/flatpak/app/org.freecad.FreeCAD/x86_64/stable/c8bae9a419fcddf1f40c046b064be3b8b98144734b1828428f6a2a944312dd29/files/freecad/lib/**)",
+      "Bash(grep -B2 -A2 \"^getIcon$\")"
     ],
     "additionalDirectories": [
       "/home/fabian/.var/app/org.freecad.FreeCAD/data/FreeCAD/v1-1/Macro"

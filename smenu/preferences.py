@@ -19,12 +19,16 @@ class SMenuPreferencesPage:
     def loadSettings(self) -> None:
         self.form.gridRows.setValue(config.getGridRows())
         self.form.gridColumns.setValue(config.getGridColumns())
+        self.form.cellSize.setValue(config.getCellSize())
+        self.form.showCellFrames.setChecked(config.getShowCellFrames())
         self.form.triggerKey.setText(config.getTriggerKey())
         self._fillWorkspaceList()
 
     def saveSettings(self) -> None:
         config.setGridRows(self.form.gridRows.value())
         config.setGridColumns(self.form.gridColumns.value())
+        config.setCellSize(self.form.cellSize.value())
+        config.setShowCellFrames(self.form.showCellFrames.isChecked())
         config.setTriggerKey(self.form.triggerKey.text())
         for item in self._workspaceItems():
             config.setHasOwnPalette(

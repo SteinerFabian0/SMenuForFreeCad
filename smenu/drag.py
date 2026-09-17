@@ -4,6 +4,7 @@ from PySide import QtCore, QtGui, QtWidgets
 
 GHOST_ICON_SIZE = 24
 GHOST_CURSOR_OFFSET = 6
+GHOST_REMOVAL_OPACITY = 0.35
 
 
 class CommandDrag:
@@ -33,12 +34,16 @@ class CommandDrag:
         self.commandName = commandName
         self.source = source
         self.ghost.setPixmap(icon.pixmap(GHOST_ICON_SIZE, GHOST_ICON_SIZE))
+        self.showAsRemoval(False)
         self.moveTo(globalPosition)
         self.ghost.show()
         self.ghost.raise_()
 
     def moveTo(self, globalPosition: QtCore.QPoint) -> None:
         self.ghost.move(globalPosition + QtCore.QPoint(GHOST_CURSOR_OFFSET, GHOST_CURSOR_OFFSET))
+
+    def showAsRemoval(self, isRemoval: bool) -> None:
+        self.ghost.setWindowOpacity(GHOST_REMOVAL_OPACITY if isRemoval else 1.0)
 
     def finish(self) -> str:
         droppedCommand = self.commandName

@@ -5,11 +5,11 @@
 import importlib
 
 import smenu
-from smenu import commands, config, drag, preferences, search, setup, widget
+from smenu import commands, config, drag, index, preferences, search, setup, widget
 
 setup.teardown()
 
-for module in (smenu, config, commands, drag, search, widget, preferences, setup):
+for module in (smenu, config, commands, drag, index, search, widget, preferences, setup):
     importlib.reload(module)
 
 setup.install()

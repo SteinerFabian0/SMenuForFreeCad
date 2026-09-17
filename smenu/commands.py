@@ -1,61 +1,31 @@
-# Resolving search results to FreeCAD commands, and running/rendering them.
+# Labels, icons, tooltips and execution for FreeCAD commands, addressed by name.
 
 import FreeCADGui as Gui
-from PySide import QtGui, QtWidgets
-
-PINNABLE_HANDLERS = ("tool", "subTool")
+from PySide import QtGui
 
 
-def commandNameFromResult(result: dict) -> str:
-    action = result.get("action", {}) if result else {}
-    if action.get("handler") not in PINNABLE_HANDLERS:
-        return ""
-    if action.get("showMenu"):
-        return ""
-
-    toolAction = _toolbarAction(
-        action.get("toolbar", ""), action.get("tool", ""), action.get("subTool", "")
-    )
-    return toolAction.objectName() if toolAction is not None else ""
+def labelFor(commandName: str) -> str:
+    menuText = _commandInfo(commandName).get("menuText", "")
+    return menuText.replace("&", "") if menuText else commandName
 
 
 def iconFor(commandName: str) -> QtGui.QIcon:
+    # A command's QAction only exists once the command sits in some menu or
+    # toolbar, so its pixmap name is resolved through FreeCAD's icon factory
+    # first — that works for every registered command, listed or not.
+    icon = _factoryIcon(_commandInfo(commandName).get("pixmap", ""))
+    if not icon.isNull():
+        return icon
     action = _commandAction(commandName)
-    if action is not None and not action.icon().isNull():
-        return action.icon()
-    return QtGui.QIcon(_resourcePathFor(commandName))
+    return action.icon() if action is not None else QtGui.QIcon()
 
 
 def toolTipFor(commandName: str) -> str:
-    action = _commandAction(commandName)
-    if action is not None:
-        return action.toolTip()
-    return _commandInfo(commandName).get("toolTip", commandName)
+    return _commandInfo(commandName).get("toolTip", "") or labelFor(commandName)
 
 
 def run(commandName: str) -> None:
     Gui.runCommand(commandName, 0)
-
-
-def _toolbarAction(toolbarName: str, toolText: str, subToolText: str) -> QtGui.QAction:
-    mainWindow = Gui.getMainWindow()
-    for toolbar in mainWindow.findChildren(QtWidgets.QToolBar, toolbarName):
-        for button in toolbar.findChildren(QtWidgets.QToolButton):
-            if button.text() != toolText:
-                continue
-            if not subToolText:
-                return button.defaultAction()
-            return _menuAction(button.menu(), subToolText)
-    return None
-
-
-def _menuAction(menu: QtWidgets.QMenu, text: str) -> QtGui.QAction:
-    if menu is None:
-        return None
-    for action in menu.actions():
-        if action.text() == text:
-            return action
-    return None
 
 
 def _commandAction(commandName: str) -> QtGui.QAction:
@@ -65,12 +35,15 @@ def _commandAction(commandName: str) -> QtGui.QAction:
 
 
 def _commandInfo(commandName: str) -> dict:
-    command = Gui.Command.get(commandName)
+    command = Gui.Command.get(commandName) if commandName else None
     return command.getInfo() if command is not None else {}
 
 
-def _resourcePathFor(commandName: str) -> str:
-    pixmap = _commandInfo(commandName).get("pixmap", "")
-    if not pixmap:
-        return ""
-    return pixmap if pixmap.startswith(":") else ":/icons/" + pixmap
+def _factoryIcon(pixmapName: str) -> QtGui.QIcon:
+    if not pixmapName:
+        return QtGui.QIcon()
+    try:
+        icon = Gui.getIcon(pixmapName)
+    except Exception:
+        return QtGui.QIcon()
+    return icon if icon is not None else QtGui.QIcon()

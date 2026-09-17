@@ -13,6 +13,9 @@ DEFAULT_GRID_ROWS = 3
 DEFAULT_GRID_COLUMNS = 4
 MIN_GRID_EXTENT = 1
 MAX_GRID_EXTENT = 12
+DEFAULT_CELL_SIZE = 28
+MIN_CELL_SIZE = 16
+MAX_CELL_SIZE = 96
 DEFAULT_TRIGGER_KEY = "S"
 
 WORKSPACE_SUFFIX = "Workbench"
@@ -32,6 +35,22 @@ def setGridRows(rows: int) -> None:
 
 def setGridColumns(columns: int) -> None:
     _parameters().SetInt("GridColumns", _clampGridExtent(columns))
+
+
+def getCellSize() -> int:
+    return _clampCellSize(_parameters().GetInt("CellSize", DEFAULT_CELL_SIZE))
+
+
+def setCellSize(size: int) -> None:
+    _parameters().SetInt("CellSize", _clampCellSize(size))
+
+
+def getShowCellFrames() -> bool:
+    return _parameters().GetBool("ShowCellFrames", True)
+
+
+def setShowCellFrames(showCellFrames: bool) -> None:
+    _parameters().SetBool("ShowCellFrames", showCellFrames)
 
 
 def getTriggerKey() -> str:
@@ -94,6 +113,10 @@ def _ownPaletteParameters():
 
 def _clampGridExtent(extent: int) -> int:
     return max(MIN_GRID_EXTENT, min(MAX_GRID_EXTENT, extent))
+
+
+def _clampCellSize(size: int) -> int:
+    return max(MIN_CELL_SIZE, min(MAX_CELL_SIZE, size))
 
 
 def _cellKey(row: int, column: int) -> str:

@@ -13,14 +13,17 @@ Alt+drag rearranges pinned commands. Pinned commands run on click and
 are stored per palette.
 
 Search reuses the [SearchBar](https://github.com/APEbbers/SearchBar)
-addon's search field rather than reimplementing the tool index. If
-SearchBar is not installed, the S-menu still opens and the field is shown
-disabled — install SearchBar through the Addon Manager to enable search.
+addon's search field, but searches the S-menu's own index: every command
+FreeCAD has registered, taken live from the command registry rather than
+from SearchBar's cached scrape of the toolbars. If SearchBar is not
+installed, the S-menu still opens and the field is shown disabled —
+install SearchBar through the Addon Manager to enable search.
 
 ## Usage
 
-Set the grid size and the trigger key under **Edit -> Preferences ->
-SMenu**; both are global and apply in every workspace.
+Set the grid size, the cell size, the cell outlines and the trigger key
+under **Edit -> Preferences -> SMenu**; all of them are global and apply
+in every workspace.
 
 The grid opens on its own; results appear only once you type. Hovering a
 result shows its details beside the list, clicking one runs it.
@@ -28,7 +31,8 @@ result shows its details beside the list, clicking one runs it.
 Drag a result onto a grid cell to pin it there; click a pinned cell to
 run it. Dropping on an occupied cell replaces what was there. **Alt+drag**
 a pinned command to move it, which swaps it with whatever occupies the
-target cell — dropping on an empty cell just moves it.
+target cell — dropping on an empty cell just moves it. Alt+drag it out of
+the menu to unpin it; the ghost icon fades once the drop would remove it.
 
 ## Workspace palettes
 
@@ -42,9 +46,9 @@ own palette untouched, ready for when it is checked again.
 The grid size and the search bar are global — only the pins differ
 between palettes.
 
-Only results that map to a toolbar command can be pinned — a command is
-stored by name, resolved through the toolbar button it appears on, so its
-workbench has to be loaded at the moment of the drop.
+A command only shows up in search while its workbench is loaded, since
+that is when FreeCAD registers it. A pin keeps working regardless: it
+stores the command name, not the workbench.
 
 ## Layout
 
@@ -54,12 +58,15 @@ workbench has to be loaded at the moment of the drop.
   dev, see `dev/reload.py`).
   - `setup.py` - install/teardown of the global trigger-key event filter.
   - `widget.py` - the grid + search popup widget.
-  - `commands.py` - resolves a search result to a FreeCAD command name,
-    and supplies that command's icon, tooltip and execution.
+  - `commands.py` - a command's label, icon, tooltip and execution,
+    addressed by command name.
+  - `index.py` - the searchable command index built from FreeCAD's
+    command registry, in the group shape SearchBar's box expects.
   - `drag.py` - the in-flight drag: its ghost icon and drop threshold.
-  - `search.py` - the search field: builds SearchBar's `SearchBoxLight`,
-    stretches it across the panel, and routes clicks on its result list
-    past the popup's mouse grab.
+  - `search.py` - the search field: builds SearchBar's `SearchBoxLight`
+    over `index.py`, stretches it across the panel, routes clicks on its
+    result list past the popup's mouse grab, and replaces its key handler
+    so fast typing keeps its order.
   - `config.py` - persisted settings (grid size, trigger key, palettes
     and which workspace uses which) via FreeCAD's parameter store.
   - `preferences.py` - the preferences page class registered with
@@ -75,10 +82,10 @@ workbench has to be loaded at the moment of the drop.
 
 No code from other addons is copied into this repo. `smenu/search.py`
 integrates with the [SearchBar](https://github.com/APEbbers/SearchBar)
-addon at runtime, importing its installed `GetItemGroups`, `SearchBox`,
-`SearchBoxLight` and `IndentedItemDelegate` modules to reuse its search
-field and result index instead of reimplementing them; SearchBar must be
-installed separately (see Addon Manager) and keeps its own license.
+addon at runtime, importing its installed `SearchBox`, `SearchBoxLight`
+and `IndentedItemDelegate` modules to reuse its search field and result
+list instead of reimplementing them; SearchBar must be installed
+separately (see Addon Manager) and keeps its own license.
 
 ## Dev setup
 

@@ -1,10 +1,13 @@
-# Search field for the S-menu, backed by the installed SearchBar addon.
+# Search field for the S-menu: SearchBar's search box driven by our command index.
 
 from typing import Callable
 
 from PySide import QtCore, QtGui, QtWidgets
 
+from smenu import index
+
 UNAVAILABLE_PLACEHOLDER = "Search needs the SearchBar addon"
+PLACEHOLDER = "Search commands"
 RESULT_LIST_HEIGHT = 200
 TOOL_INFO_WIDTH = 260
 RESULT_SCROLL_STEP = 3
@@ -14,9 +17,13 @@ WHEEL_NOTCH = 120
 
 
 def createSearchField(
-    parent: QtWidgets.QWidget, height: int, onResultActivated: Callable[[], None]
+    parent: QtWidgets.QWidget,
+    height: int,
+    commandIndex: index.CommandIndex,
+    onCommandActivated: Callable[[str], None],
 ) -> QtWidgets.QLineEdit:
-    field = _createSearchBarField(parent, onResultActivated) or _createUnavailableField(parent)
+    field = _createSearchBarField(parent, commandIndex, onCommandActivated)
+    field = field or _createUnavailableField(parent)
     _stretchAcrossPanel(field, height)
     return field
 
@@ -33,27 +40,23 @@ def coversPoint(field: QtWidgets.QLineEdit, globalPosition: QtCore.QPoint) -> bo
     )
 
 
-def resultAt(field: QtWidgets.QLineEdit, globalPosition: QtCore.QPoint) -> dict:
-    index = _resultIndexAt(field, globalPosition)
-    if index is None:
+def groupIdAt(field: QtWidgets.QLineEdit, globalPosition: QtCore.QPoint) -> int:
+    resultIndex = _resultIndexAt(field, globalPosition)
+    if resultIndex is None:
         return None
-
-    import GetItemGroups
-
-    groupId = int(index.model().itemData(index.siblingAtColumn(2))[0])
-    return GetItemGroups.globalGroups[groupId] if groupId >= 0 else None
+    return int(resultIndex.model().itemData(resultIndex.siblingAtColumn(2))[0])
 
 
 def activateResultAt(field: QtWidgets.QLineEdit, globalPosition: QtCore.QPoint) -> None:
-    index = _resultIndexAt(field, globalPosition)
-    if index is None:
+    resultIndex = _resultIndexAt(field, globalPosition)
+    if resultIndex is None:
         return
 
     # SearchBar's own click handler asks the list whether it is under the mouse,
     # which the S-menu's popup grab makes it answer with False.
     import SearchBox
 
-    SearchBox.SearchBox.selectResult(field, None, index)
+    SearchBox.SearchBox.selectResult(field, None, resultIndex)
 
 
 def hideToolInfo(field: QtWidgets.QLineEdit) -> None:
@@ -66,11 +69,11 @@ def hoverResultAt(field: QtWidgets.QLineEdit, globalPosition: QtCore.QPoint) -> 
     resultList = _floatingWidget(field, "listView")
     if resultList is None or not resultList.isVisible():
         return
-    index = _resultIndexAt(field, globalPosition)
-    if index is None:
+    resultIndex = _resultIndexAt(field, globalPosition)
+    if resultIndex is None:
         hideToolInfo(field)
         return
-    resultList.setCurrentIndex(index)
+    resultList.setCurrentIndex(resultIndex)
     field.showExtraInfo()
 
 
@@ -92,15 +95,16 @@ def _resultIndexAt(field: QtWidgets.QLineEdit, globalPosition: QtCore.QPoint) ->
     resultList = _floatingWidget(field, "listView")
     if resultList is None or not _containsGlobally(resultList, globalPosition):
         return None
-    index = resultList.indexAt(resultList.viewport().mapFromGlobal(globalPosition))
-    return index if index.isValid() else None
+    resultIndex = resultList.indexAt(resultList.viewport().mapFromGlobal(globalPosition))
+    return resultIndex if resultIndex.isValid() else None
 
 
 def _createSearchBarField(
-    parent: QtWidgets.QWidget, onResultActivated: Callable[[], None]
+    parent: QtWidgets.QWidget,
+    commandIndex: index.CommandIndex,
+    onCommandActivated: Callable[[str], None],
 ) -> QtWidgets.QLineEdit:
     try:
-        import GetItemGroups
         import IndentedItemDelegate
         import SearchBox
         import SearchBoxLight
@@ -108,17 +112,20 @@ def _createSearchBarField(
         return None
 
     field = SearchBoxLight.SearchBoxLight(
-        getItemGroups=GetItemGroups.getItemGroups,
-        getToolTip=GetItemGroups.getToolTip,
+        getItemGroups=commandIndex.refresh,
+        getToolTip=lambda groupId, setParent: commandIndex.toolTipWidgetFor(int(groupId)),
         getItemDelegate=IndentedItemDelegate.IndentedItemDelegate,
         parent=parent,
     )
     SearchBox.SearchBox.lazyInit(field)
+    field.setPlaceholderText(PLACEHOLDER)
     _pinFloatingWidgetsToField(field)
     _showToolInfoOnHoverOnly(field)
     _showResultsOnlyWhenTyping(field)
-    field.resultSelected.connect(lambda index, groupId: onResultActivated())
-    field.resultSelected.connect(GetItemGroups.onResultSelected)
+    _typeWithoutRedrawingTheGui(field)
+    field.resultSelected.connect(
+        lambda resultIndex, groupId: onCommandActivated(commandIndex.commandNameFor(groupId))
+    )
     return field
 
 
@@ -131,9 +138,8 @@ def _createUnavailableField(parent: QtWidgets.QWidget) -> QtWidgets.QLineEdit:
 
 def _stretchAcrossPanel(field: QtWidgets.QLineEdit, height: int) -> None:
     # SearchBoxLight pins itself to 200px so its clear button cannot resize it;
-    # in the S-menu the field has to follow the panel width instead. Its width
-    # hint is ignored as well, so the panel is sized by the grid alone and the
-    # grid keeps its spacing instead of stretching to a wider field.
+    # in the S-menu the field has to follow the panel width instead, which an
+    # ignored size policy makes it do in both directions.
     field.setMinimumWidth(0)
     field.setMaximumWidth(_UNBOUNDED_WIDTH)
     field.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
@@ -181,6 +187,17 @@ def _showToolInfoOnHoverOnly(field: QtWidgets.QLineEdit) -> None:
             extraInfo.hide()
 
     field.showExtraInfo = showExtraInfo
+
+
+def _typeWithoutRedrawingTheGui(field: QtWidgets.QLineEdit) -> None:
+    # SearchBar's key handler calls Gui.updateGui(), which pumps the event queue
+    # from inside the key press and lets the next keystroke overtake the one being
+    # handled — typing fast arrives out of order. Plain QLineEdit editing plus the
+    # textChanged hook below covers everything the S-menu needs from it.
+    def keyPressEvent(event: QtGui.QKeyEvent) -> None:
+        QtWidgets.QLineEdit.keyPressEvent(field, event)
+
+    field.keyPressEvent = keyPressEvent
 
 
 def _showResultsOnlyWhenTyping(field: QtWidgets.QLineEdit) -> None:
