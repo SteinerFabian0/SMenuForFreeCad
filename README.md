@@ -64,9 +64,11 @@ stores the command name, not the workbench.
     command registry, in the group shape SearchBar's box expects.
   - `drag.py` - the in-flight drag: its ghost icon and drop threshold.
   - `search.py` - the search field: builds SearchBar's `SearchBoxLight`
-    over `index.py`, stretches it across the panel, routes clicks on its
-    result list past the popup's mouse grab, and replaces its key handler
-    so fast typing keeps its order.
+    over `index.py`, stretches it across the panel, places its result
+    list below the field (or beside the menu when the screen's bottom
+    edge leaves no room), routes clicks on the list past the popup's
+    mouse grab, and replaces its key handler so fast typing keeps its
+    order.
   - `config.py` - persisted settings (grid size, trigger key, palettes
     and which workspace uses which) via FreeCAD's parameter store.
   - `preferences.py` - the preferences page class registered with

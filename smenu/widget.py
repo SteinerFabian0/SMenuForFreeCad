@@ -224,6 +224,8 @@ class SMenuWidget(QtWidgets.QFrame):
             cell.setDropTarget(cell is target)
 
     def _cellAt(self, globalPosition: QtCore.QPoint) -> SMenuCell:
+        if search.coversPoint(self.searchField, globalPosition):
+            return None
         child = self.childAt(self.mapFromGlobal(globalPosition))
         return child if isinstance(child, SMenuCell) else None
 

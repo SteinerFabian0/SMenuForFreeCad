@@ -120,6 +120,7 @@ def _createSearchBarField(
     SearchBox.SearchBox.lazyInit(field)
     field.setPlaceholderText(PLACEHOLDER)
     _pinFloatingWidgetsToField(field)
+    _styleToolInfoLikePanel(field)
     _showToolInfoOnHoverOnly(field)
     _showResultsOnlyWhenTyping(field)
     _typeWithoutRedrawingTheGui(field)
@@ -156,23 +157,60 @@ def _pinFloatingWidgetsToField(field: QtWidgets.QLineEdit) -> None:
     def setFloatingWidgetsGeometry() -> None:
         below = field.mapToGlobal(QtCore.QPoint(0, field.height()))
         available = _screenAt(below).availableGeometry()
-        width = max(field.width(), resultList.sizeHint().width())
-        left = max(available.left(), min(below.x(), available.right() - width))
-        top = below.y()
-        if top + RESULT_LIST_HEIGHT > available.bottom():
-            top = field.mapToGlobal(QtCore.QPoint(0, 0)).y() - RESULT_LIST_HEIGHT
-        resultList.setGeometry(left, top, width, RESULT_LIST_HEIGHT)
-
-        roomOnRight = available.right() - (left + width)
-        if roomOnRight >= min(TOOL_INFO_WIDTH, left - available.left()):
-            infoLeft = left + width
-            infoWidth = min(TOOL_INFO_WIDTH, roomOnRight)
+        listSize = QtCore.QSize(
+            max(field.width(), resultList.sizeHint().width()), RESULT_LIST_HEIGHT
+        )
+        if below.y() + RESULT_LIST_HEIGHT > available.bottom():
+            panel = field.window().frameGeometry()
+            listGeometry = _besidePanel(panel, below.y(), listSize, available)
+            coveredSpan = listGeometry.united(panel)
         else:
-            infoWidth = min(TOOL_INFO_WIDTH, left - available.left())
-            infoLeft = left - infoWidth
-        extraInfo.setGeometry(infoLeft, top, infoWidth, RESULT_LIST_HEIGHT)
+            listGeometry = _belowField(below, listSize, available)
+            coveredSpan = listGeometry
+        resultList.setGeometry(listGeometry)
+        extraInfo.setGeometry(_besideSpan(coveredSpan, listGeometry.top(), available))
 
     field.setFloatingWidgetsGeometry = setFloatingWidgetsGeometry
+
+
+def _belowField(below: QtCore.QPoint, listSize: QtCore.QSize, available: QtCore.QRect) -> QtCore.QRect:
+    left = max(available.left(), min(below.x(), available.right() - listSize.width()))
+    return QtCore.QRect(QtCore.QPoint(left, below.y()), listSize)
+
+
+def _besidePanel(
+    panel: QtCore.QRect, alignedBottom: int, listSize: QtCore.QSize, available: QtCore.QRect
+) -> QtCore.QRect:
+    roomOnRight = available.right() - panel.right()
+    roomOnLeft = panel.left() - available.left()
+    if roomOnRight >= listSize.width() or roomOnRight >= roomOnLeft:
+        left = min(panel.right() + 1, available.right() + 1 - listSize.width())
+    else:
+        left = max(available.left(), panel.left() - listSize.width())
+    top = max(available.top(), alignedBottom - listSize.height())
+    return QtCore.QRect(QtCore.QPoint(left, top), listSize)
+
+
+def _besideSpan(span: QtCore.QRect, top: int, available: QtCore.QRect) -> QtCore.QRect:
+    spanEnd = span.left() + span.width()
+    roomOnRight = available.right() - spanEnd
+    roomOnLeft = span.left() - available.left()
+    if roomOnRight >= min(TOOL_INFO_WIDTH, roomOnLeft):
+        infoWidth = min(TOOL_INFO_WIDTH, roomOnRight)
+        infoLeft = spanEnd
+    else:
+        infoWidth = min(TOOL_INFO_WIDTH, roomOnLeft)
+        infoLeft = span.left() - infoWidth
+    return QtCore.QRect(infoLeft, top, infoWidth, RESULT_LIST_HEIGHT)
+
+
+def _styleToolInfoLikePanel(field: QtWidgets.QLineEdit) -> None:
+    # The tool info is a parentless window: the S-menu's style never reaches it and
+    # FreeCAD's theme only sets its text color, so its background falls back to the
+    # desktop palette — near-white under GNOME, behind white text.
+    extraInfo = field.__dict__["extraInfo"]
+    extraInfo.setObjectName("SMenuToolInfo")
+    extraInfo.setStyleSheet(_TOOL_INFO_STYLE)
 
 
 def _showToolInfoOnHoverOnly(field: QtWidgets.QLineEdit) -> None:
@@ -240,3 +278,14 @@ def _containsGlobally(widget: QtWidgets.QWidget, globalPosition: QtCore.QPoint) 
 
 def _screenAt(point: QtCore.QPoint) -> QtGui.QScreen:
     return QtGui.QGuiApplication.screenAt(point) or QtGui.QGuiApplication.primaryScreen()
+
+
+_TOOL_INFO_STYLE = """
+#SMenuToolInfo {
+    background-color: #2b2b2b;
+    border: 1px solid #555555;
+}
+#SMenuToolInfo QLabel {
+    color: #d0d0d0;
+}
+"""
